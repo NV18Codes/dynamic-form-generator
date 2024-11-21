@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Form Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-blue-50 to-blue-100 min-h-screen flex flex-col items-center py-8 px-4">
+    <!-- Header Section -->
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-4">Dynamic Form Generator</h1>
+        <p class="text-lg text-gray-600">Edit the JSON schema to generate your custom form in real-time.</p>
+    </header>
+
+    <!-- Main Content -->
+    <div class="flex flex-col md:flex-row gap-8 w-full max-w-7xl">
+        <!-- JSON Editor -->
+        <div class="w-full md:w-1/2 bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">JSON Schema Editor</h2>
+            <textarea id="json-editor"
+                class="w-full h-[350px] border border-gray-300 rounded-lg p-4 font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+                spellcheck="false">{
+  "formTitle": "Project Requirements Survey",
+  "formDescription": "Please fill out this survey about your project needs",
+  "fields": [
+    {
+      "id": "name",
+      "type": "text",
+      "label": "Full Name",
+      "required": true,
+      "placeholder": "Enter your full name"
+    },
+    {
+      "id": "email",
+      "type": "email",
+      "label": "Email Address",
+      "required": true,
+      "placeholder": "you@example.com",
+      "validation": {
+        "pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+        "message": "Please enter a valid email address"
+      }
+    },
+    {
+      "id": "companySize",
+      "type": "select",
+      "label": "Company Size",
+      "required": true,
+      "options": [
+        { "value": "1-50", "label": "1-50 employees" },
+        { "value": "51-200", "label": "51-200 employees" },
+        { "value": "201-1000", "label": "201-1000 employees" },
+        { "value": "1000+", "label": "1000+ employees" }
+      ]
+    },
+    {
+      "id": "industry",
+      "type": "radio",
+      "label": "Industry",
+      "required": true,
+      "options": [
+        { "value": "tech", "label": "Technology" },
+        { "value": "healthcare", "label": "Healthcare" },
+        { "value": "finance", "label": "Finance" },
+        { "value": "retail", "label": "Retail" },
+        { "value": "other", "label": "Other" }
+      ]
+    },
+    {
+      "id": "timeline",
+      "type": "select",
+      "label": "Project Timeline",
+      "required": true,
+      "options": [
+        { "value": "immediate", "label": "Immediate (within 1 month)" },
+        { "value": "short", "label": "Short-term (1-3 months)" },
+        { "value": "medium", "label": "Medium-term (3-6 months)" },
+        { "value": "long", "label": "Long-term (6+ months)" }
+      ]
+    },
+    {
+      "id": "comments",
+      "type": "textarea",
+      "label": "Additional Comments",
+      "required": false,
+      "placeholder": "Any other details you'd like to share..."
+    }
+  ]
+}</textarea>
+            <p id="error-message" class="text-red-500 text-sm mt-2 hidden">Invalid JSON format. Please fix the errors.</p>
+        </div>
+
+        <!-- Form Preview -->
+        <div class="w-full md:w-1/2 bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4" id="form-title"></h2>
+            <p class="text-gray-600 mb-4" id="form-description"></p>
+            <form id="dynamic-form" class="space-y-6"></form>
+        </div>
+    </div>
+
+    <!-- Submission Preview -->
+    <div id="submission-preview" class="hidden w-full max-w-7xl mt-8 bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-2xl font-semibold text-green-600 mb-4">Submission Preview</h2>
+        <div class="flex flex-col md:flex-row gap-6">
+            <!-- JSON Preview -->
+            <div class="w-full md:w-1/2">
+                <h3 class="text-lg font-medium text-gray-700">Submitted JSON</h3>
+                <pre id="json-preview"
+                    class="bg-gray-100 border border-gray-300 rounded-lg p-4 text-sm font-mono overflow-auto"></pre>
+            </div>
+            <!-- Formatted View -->
+            <div class="w-full md:w-1/2">
+                <h3 class="text-lg font-medium text-gray-700">Formatted View</h3>
+                <div id="form-preview"
+                    class="bg-gray-100 border border-gray-300 rounded-lg p-4 text-sm space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        const jsonEditor = document.getElementById("json-editor");
+        const errorMessage = document.getElementById("error-message");
+        const formTitle = document.getElementById("form-title");
+        const formDescription = document.getElementById("form-description");
+        const dynamicForm = document.getElementById("dynamic-form");
+        const submissionPreview = document.getElementById("submission-preview");
+        const jsonPreview = document.getElementById("json-preview");
+        const formPreview = document.getElementById("form-preview");
+
+        function generateForm(schema) {
+            // Set form title and description
+            formTitle.textContent = schema.formTitle;
+            formDescription.textContent = schema.formDescription;
+
+            // Clear the existing form
+            dynamicForm.innerHTML = "";
+
+            // Generate fields dynamically
+            schema.fields.forEach((field) => {
+                const wrapper = document.createElement("div");
+
+                // Create label
+                const label = document.createElement("label");
+                label.setAttribute("for", field.id);
+                label.textContent = field.label;
+                label.classList.add("block", "font-medium", "text-gray-700");
+
+                // Create input/select/textarea based on type
+                let inputElement;
+                if (field.type === "select") {
+                    inputElement = document.createElement("select");
+                    field.options.forEach((option) => {
+                        const opt = document.createElement("option");
+                        opt.value = option.value;
+                        opt.textContent = option.label;
+                        inputElement.appendChild(opt);
+                    });
+                } else if (field.type === "radio") {
+                    inputElement = document.createElement("div");
+                    field.options.forEach((option) => {
+                        const radioWrapper = document.createElement("div");
+                        radioWrapper.classList.add("flex", "items-center", "gap-2");
+
+                        const radioInput = document.createElement("input");
+                        const radioLabel = document.createElement("label");
+
+                        radioInput.type = "radio";
+                        radioInput.id = `${field.id}-${option.value}`;
+                        radioInput.name = field.id;
+                        radioInput.value = option.value;
+                        radioInput.required = field.required;
+
+                        radioLabel.textContent = option.label;
+                        radioLabel.setAttribute("for", radioInput.id);
+
+                        radioWrapper.appendChild(radioInput);
+                        radioWrapper.appendChild(radioLabel);
+                        inputElement.appendChild(radioWrapper);
+                    });
+                } else if (field.type === "textarea") {
+                    inputElement = document.createElement("textarea");
+                    inputElement.placeholder = field.placeholder || "";
+                    inputElement.rows = 4;
+                } else {
+                    inputElement = document.createElement("input");
+                    inputElement.type = field.type;
+                    inputElement.placeholder = field.placeholder || "";
+                    if (field.validation?.pattern) {
+                        inputElement.pattern = field.validation.pattern;
+                    }
+                }
+
+                inputElement.id = field.id;
+                inputElement.name = field.id;
+                inputElement.classList.add(
+                    "block",
+                    "w-full",
+                    "border",
+                    "rounded-lg",
+                    "mt-1",
+                    "p-3",
+                    "focus:outline-none",
+                    "focus:ring-2",
+                    "focus:ring-blue-300"
+                );
+                if (field.required) inputElement.required = true;
+
+                wrapper.appendChild(label);
+                wrapper.appendChild(inputElement);
+                dynamicForm.appendChild(wrapper);
+            });
+
+            // Add submit button
+            const submitButton = document.createElement("button");
+            submitButton.type = "submit";
+            submitButton.textContent = "Submit";
+            submitButton.classList.add("bg-blue-600", "text-white", "px-6", "py-2", "rounded-lg", "hover:bg-blue-700");
+            dynamicForm.appendChild(submitButton);
+        }
+
+        function updateForm() {
+            try {
+                const schema = JSON.parse(jsonEditor.value);
+                errorMessage.classList.add("hidden");
+                generateForm(schema);
+            } catch (err) {
+                errorMessage.classList.remove("hidden");
+            }
+        }
+
+        function handleSubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(dynamicForm);
+            const formObject = {};
+            formData.forEach((value, key) => {
+                if (formObject[key]) {
+                    if (Array.isArray(formObject[key])) {
+                        formObject[key].push(value);
+                    } else {
+                        formObject[key] = [formObject[key], value];
+                    }
+                } else {
+                    formObject[key] = value;
+                }
+            });
+
+            // Update JSON preview
+            jsonPreview.textContent = JSON.stringify(formObject, null, 2);
+
+            // Update Formatted view
+            formPreview.innerHTML = "";
+            for (const [key, value] of Object.entries(formObject)) {
+                const item = document.createElement("div");
+                item.classList.add("flex", "justify-between", "gap-4");
+                item.innerHTML = `<span class="font-medium text-gray-700">${key}:</span><span class="text-gray-600">${value}</span>`;
+                formPreview.appendChild(item);
+            }
+
+            submissionPreview.classList.remove("hidden");
+        }
+
+        jsonEditor.addEventListener("input", updateForm);
+        dynamicForm.addEventListener("submit", handleSubmit);
+
+        // Initialize form on load
+        updateForm();
+    </script>
+</body>
+
+</html>
